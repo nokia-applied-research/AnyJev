@@ -37,6 +37,7 @@ carries only the shipped code and the result JSON a doc cites (`docs/migration_v
 - Bench: seven small open models (1.7B to 8B, six architectures) on all tasks. Results in `bench/results_small*/`, write-up in `docs/results_small_models.md`, README section added.
 - Packaging and CI: version 0.1.0; the `hf` extra requires `transformers>=4.53` (the L2 block loop uses `transformers.masking_utils`); CI lints `demo/` and `scripts/` as well (`ruff check anyjev bench tests demo scripts`).
 - Docs: `docs/method_v3.md` (the method end to end, three flow diagrams), the two diagrams in both READMEs (the fit-then-adapt loop, the deployment lifecycle), `ROADMAP.md` as a checkbox list with a definition of done per item, `docs/migration_v3.md`.
+- Backend: `LlamaCppBackend` (`anyjev/backends/llamacpp.py`, extra `anyjev[llamacpp]`, llama-cpp-python>=0.3.16) runs GGUF models at raw / L0 / L1. Each prompt is decoded from a cleared KV cache with logits requested for the final token only (no `logits_all`), and the full-vocabulary log-softmax of that row is read; nothing is sampled. By default the GGUF's own vocabulary and chat template are used; with `tokenizer=` a Hugging Face tokenizer renders the prompts and every prompt and label id is checked token for token against the GGUF (`TokenMismatchError` on a mismatch). Parity against `HFBackend`: `scripts/llamacpp_parity.py`. Tests on a stub engine in `tests/test_llamacpp.py`; the `engine` pytest marker is registered for tests that need a real engine. No `hidden_states_to`, so no L2.
 
 ## 0.0.2
 
