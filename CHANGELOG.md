@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Docs:** Add a reproducible guide for comparing AnyJev with Laya on LocalLLaMA/typed-decisions.
+
 ## 0.1.0 (2026-09-26)
 
 Version 3 of the method: a closed-form head at a fixed depth, routing, label-free adaptation, a packaged demo, and a tree that

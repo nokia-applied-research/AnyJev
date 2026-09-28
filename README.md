@@ -124,7 +124,8 @@ weights untouched — and read from one prompt stopped partway down.
 
 <sub>LocalLLaMA/typed-decisions, 20 questions × 300 labels, 2,000 held-out decisions. Pooled ECE
 0.03–0.05. Jev 0.727 and fine-tuned Laya 0.768 on the same set, as published by their authors ·
-<a href="docs/results_exit.md">every cell</a></sub>
+<a href="docs/results_exit.md">every cell</a> ·
+<a href="docs/evaluating-laya.md">reproduce the AnyJev/Laya comparison</a></sub>
 
 </div>
 
