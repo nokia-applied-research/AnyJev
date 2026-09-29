@@ -2,6 +2,9 @@
 
 ## 0.2.0 (2026-09-28)
 
+- **SGLang backend.** `SGLangBackend` uses the native `/generate` scoring path with `token_ids_logprob` and
+  `max_new_tokens=0`, so it returns requested next-token log-probabilities without sampling a token. The
+  protocol test and `scripts/sglang_parity.py` cover parity against `HFBackend`; L2 remains unavailable.
 - **New, opt-in: L0 can read as many option rotations as the decision needs instead of K, with the
   rotations turning a canonical listing.** Opt-in rather than default only because every table in `docs/`
   was measured before it existed; the defaults flip in the release that regenerates them. `Decider(adaptive_shifts=True)` is now the default and the stopping rule
