@@ -464,3 +464,28 @@ def test_an_unknown_calibrator_method_raises_instead_of_being_read_as_a_temperat
     assert "temperature" in CALIBRATORS
     d.load_artifact(q, {"method": "temperature", "temperature": 2.0})   # and the known one still loads
     assert d.decide("card declined", [q], level="L1")["route"].level == "L1"
+
+
+def test_reset_prior_forgets_the_history_of_one_question_or_all():
+    """A long-lived Decider (a server) keeps the batch prior running across every call. Two
+    runs through the same Decider then differ only by what it saw before; reset_prior() puts a
+    question back where a fresh Decider starts, without dropping anything else it holds."""
+    be = lambda: FakeBackend(lambda s, o: 1.5 if (o == "Yes") == s.startswith("yes") else 0.0,  # noqa: E731
+                             label_prior={"Yes": 2.0})
+    q = Question.noul("Is it a yes?", name="y")
+    other = Question.noul("Is it urgent?", name="u")
+    history = [f"yes {i}" for i in range(12)]
+    d = Decider(be())
+    d.decide_batch(history, q)
+    d.decide_batch(history, other)
+    assert d.running_prior(q) is not None and d.running_prior(other) is not None
+
+    d.reset_prior(q)
+    assert d.running_prior(q) is None and d.running_prior(other) is not None
+    after = d.decide("no 1", [q])["y"]
+    fresh = Decider(be()).decide("no 1", [q])["y"]
+    assert after.diagnostics["prior_method"] == "none"
+    np.testing.assert_allclose(after.probs, fresh.probs, atol=1e-12)
+
+    d.reset_prior()
+    assert d.running_prior(other) is None

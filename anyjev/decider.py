@@ -536,6 +536,18 @@ class Decider:
             return None
         return batch_prior(entry[0][None] / entry[1])
 
+    def reset_prior(self, question: Optional[Question] = None) -> None:
+        """Forget the batch prior accumulated for `question`, or for every question if None.
+
+        The prior keeps running across calls, so a long-lived Decider's L0 answers depend on
+        everything it has scored before. After a reset the question starts where a fresh
+        Decider does (no correction until `min_prior_n` items); heads, frozen L1 priors and
+        the content-free cache are kept."""
+        if question is None:
+            self._running.clear()
+        else:
+            self._running.pop(question.key, None)
+
     # ---- internals ----------------------------------------------------
     def _labels_for(self, q: Question):
         """(labels, token ids) for this question kind and size, resolved once per tokenizer."""

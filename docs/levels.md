@@ -32,7 +32,9 @@ labels, divide the real distribution by it, renormalize. Two estimators:
   predicted distribution over real inputs, kept running per question across
   calls and used once it has seen `min_prior_n` items (default 8). Before
   that, no prior correction is applied and `diagnostics["prior_method"]`
-  says `none`. In the bench it was the low-variance choice: +1 to +2
+  says `none`. `Decider.reset_prior(question)` (or `reset_prior()` for all
+  questions) starts the running prior over, e.g. between two measured runs
+  through one long-lived Decider. In the bench it was the low-variance choice: +1 to +2
   accuracy points and a large ECE improvement on every model and task, with
   no task where it hurt by more than a point. It assumes the label marginal
   of the batch is not extreme.
