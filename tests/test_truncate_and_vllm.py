@@ -133,3 +133,69 @@ def test_the_config_comes_from_the_source_not_the_served_alias(stub, monkeypatch
     be = _backend(stub, monkeypatch)
     assert be.name == "served-alias"
     assert be.source == "some/real-model"
+
+
+class _Completions(BaseHTTPRequestHandler):
+    """Answers /v1/completions with a fixed `top_logprobs` entry, keyed by token string."""
+
+    top: dict = {}
+
+    def do_POST(self):                                    # noqa: N802 - http.server's name
+        self.rfile.read(int(self.headers["Content-Length"]))
+        payload = json.dumps({"choices": [{"logprobs": {"top_logprobs": [self.top]}}]}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def log_message(self, *a):
+        pass
+
+
+class _IdTok:
+    """Renders token id i as "<i>", both ways the backend looks a label up."""
+
+    @staticmethod
+    def decode(ids):
+        return f"<{ids[0]}>"
+
+    @staticmethod
+    def convert_ids_to_tokens(i):
+        return f"<{i}>"
+
+
+@pytest.fixture()
+def completions(monkeypatch):
+    def serve(top):
+        handler = type("H", (_Completions,), {"top": top})
+        srv = HTTPServer(("127.0.0.1", 0), handler)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        servers.append(srv)
+        be = _backend(f"http://127.0.0.1:{srv.server_port}", monkeypatch)
+        be.tokenizer = _IdTok()
+        return be
+
+    servers = []
+    yield serve
+    for srv in servers:
+        srv.shutdown()
+
+
+def test_next_token_logprobs_reads_each_label_by_id(completions):
+    pytest.importorskip("transformers")
+    be = completions({"<2>": -2.5, "<1>": -0.1})
+    (row,) = be.next_token_logprobs(["p"], [[1, 2]])
+    assert np.allclose(row, [-0.1, -2.5])
+
+
+def test_a_label_missing_from_top_logprobs_is_an_error(completions):
+    """vLLM's default `--logprobs-mode raw_logprobs` computes logprobs before `allowed_token_ids`
+    masks the vocabulary, so the top-K can hold a non-label token in place of a label. A label
+    filled in with a constant would be a confident wrong answer with no symptom."""
+    pytest.importorskip("transformers")
+    from anyjev.readout import LabelTokenError
+
+    be = completions({"<1>": -0.1, "<9>": -1.0})          # label 2 fell out, token 9 took its place
+    with pytest.raises(LabelTokenError, match=r"\[2\].*processed_logprobs"):
+        be.next_token_logprobs(["p"], [[1, 2]])

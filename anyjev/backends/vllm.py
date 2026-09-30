@@ -4,11 +4,14 @@ Two server shapes, because vLLM gives one task per instance, and between them th
 cover every level.
 
 **raw / L0 / L1** -- a generate server. One request per prompt with `max_tokens=1`,
-`allowed_token_ids` restricted to the label tokens and `logprobs=K`. vLLM reports
-logprobs after its logit processors, so the K entries are exactly the labels,
-normalized over them. Prefix caching makes the K permutations of one state cheap.
+`allowed_token_ids` restricted to the label tokens and `logprobs=K`. Start it with
+`--logprobs-mode processed_logprobs`: vLLM's default, `raw_logprobs`, computes logprobs
+before `allowed_token_ids` masks the vocabulary, so the top K can hold other tokens in
+place of labels. With processed logprobs the K entries are exactly the labels. A label
+missing from them raises `LabelTokenError`. Prefix caching makes the K permutations of
+one state cheap.
 
-    vllm serve Qwen/Qwen3-8B --enable-prefix-caching
+    vllm serve Qwen/Qwen3-8B --enable-prefix-caching --logprobs-mode processed_logprobs
     Decider(VLLMBackend("http://localhost:8000", "Qwen/Qwen3-8B"))
 
 **L2** -- an embed server whose pooler is told to return the last position's hidden
@@ -35,6 +38,8 @@ import urllib.request
 from typing import List, Optional, Sequence
 
 import numpy as np
+
+from anyjev.readout import LabelTokenError
 
 
 class VLLMBackend:
@@ -73,7 +78,13 @@ class VLLMBackend:
                 if key in top:
                     by_id[tid] = float(top[key])
                     break
-        return np.array([by_id.get(tid, -30.0) for tid in ids], dtype=np.float64)
+        missing = [tid for tid in ids if tid not in by_id]
+        if missing:
+            raise LabelTokenError(
+                f"label token ids {missing} are not in the server's top_logprobs {sorted(top)}; "
+                "start vLLM with --logprobs-mode processed_logprobs so that logprobs are taken "
+                "after allowed_token_ids")
+        return np.array([by_id[tid] for tid in ids], dtype=np.float64)
 
     def next_token_logprobs(self, prompts: Sequence[str],
                             token_ids: Sequence[Sequence[int]]) -> List[np.ndarray]:
