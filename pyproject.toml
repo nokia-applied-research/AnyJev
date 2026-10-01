@@ -33,6 +33,7 @@ dependencies = ["numpy>=1.24"]
 hf = ["torch>=2.3", "transformers>=4.53"]
 bench = ["datasets>=2.20", "scikit-learn>=1.4"]
 dev = ["pytest>=8", "ruff"]
+mlx = ["mlx", "mlx-lm"]
 
 [project.urls]
 Homepage = "https://github.com/nokia-applied-research/AnyJev"
@@ -52,3 +53,4 @@ ignore = ["E731"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["engine: requires an installed local inference engine and model"]

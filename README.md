@@ -37,7 +37,26 @@ Three commands take a model off the Hub and put a calibrated decision endpoint i
 
 ```bash
 pip install "anyjev[hf]"
+```
 
+For Apple Silicon, the optional MLX backend supports raw, L0 and L1 decisions:
+
+```bash
+pip install "anyjev[mlx]"
+```
+
+```python
+from anyjev import Decider
+from anyjev.backends.mlx import MLXBackend
+
+decider = Decider(MLXBackend("mlx-community/Qwen2.5-3B-Instruct-4bit"), level="L0")
+```
+
+It reads direct logits and does not provide the hidden states required for L2.
+
+For the vLLM path:
+
+```bash
 # 1. keep the blocks a decision needs — usually about two thirds
 python -m anyjev.truncate Qwen/Qwen2.5-7B-Instruct 18 ./qwen-b18
 

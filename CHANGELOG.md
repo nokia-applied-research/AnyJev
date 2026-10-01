@@ -1,5 +1,7 @@
 # Changelog
 
+- Added an optional `mlx` backend for direct MLX-LM logits on Apple Silicon. It supports raw, L0 and L1 decisions; L2 remains available only on backends exposing hidden states.
+
 ## 0.2.0 (2026-09-28)
 
 - **New, opt-in: L0 can read as many option rotations as the decision needs instead of K, with the
