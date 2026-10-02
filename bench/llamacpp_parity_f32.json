@@ -1,0 +1,21 @@
+{
+  "gguf": "D:\\models1\\qwen2.5-0.5b-instruct-f32.gguf",
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "hf_device": "cpu",
+  "hf_dtype": "float32",
+  "n_gpu_layers": 0,
+  "prompts": 15,
+  "argmax_agreement": 15,
+  "max_abs_diff_full_vocab_logprob": 0.01591828016312391,
+  "mean_abs_diff_full_vocab_logprob": 0.008909900834040722,
+  "max_abs_diff_restricted": 0.015929870489987064,
+  "mean_abs_diff_restricted": 0.008912923532280547,
+  "env": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD",
+    "python": "3.13.2",
+    "llama_cpp_python": "0.3.35",
+    "torch": "2.14.0+cpu",
+    "transformers": "5.17.0"
+  }
+}

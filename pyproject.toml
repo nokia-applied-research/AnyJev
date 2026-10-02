@@ -32,6 +32,7 @@ dependencies = ["numpy>=1.24"]
 [project.optional-dependencies]
 hf = ["torch>=2.3", "transformers>=4.53"]
 bench = ["datasets>=2.20", "scikit-learn>=1.4"]
+llamacpp = ["llama-cpp-python>=0.3.16"]
 dev = ["pytest>=8", "ruff"]
 
 [project.urls]
@@ -52,3 +53,4 @@ ignore = ["E731"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["engine: needs an inference engine installed (llama.cpp, vLLM, ...); skipped when it is not"]
