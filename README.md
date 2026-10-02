@@ -61,7 +61,7 @@ d.decide(ticket, [route])["route"].distribution  # {"billing": 0.81, "technical"
 **Without labels, turn on the rotation budget — recommended for any K-option `choice`.** L0 asks the
 model once per option rotation so that no option is favoured by its position. Most decisions do not need
 all K: read them one at a time, stop when the leader is far enough ahead, and the threshold can be
-calibrated so the answer matches the full cycle's a stated fraction of the time — measured against
+calibrated so the answer matches the full cycle's answer a stated fraction of the time — measured against
 **our own full-strength readout, so it needs no labels at all.**
 
 ```python
