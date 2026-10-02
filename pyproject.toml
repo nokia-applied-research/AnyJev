@@ -52,3 +52,6 @@ ignore = ["E731"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "engine: requires a running external inference engine",
+]
