@@ -45,6 +45,12 @@
   machine. It now loads on the CPU without a device map (the same fix `HFBackend` got in #5).
 - Tests: `tests/test_readme_numbers.py` reads the READMEs and the result JSON as UTF-8, so it passes on Windows
   without `PYTHONUTF8=1` (reported by @Tusm11 in #2).
+- **New: `anyjev.calibrate.binning.HistogramBinning`**, top-label histogram binning (Zadrozny and Elkan, 2001)
+  as a standalone post-hoc confidence calibrator (`fit` / `apply`). Equal-mass bins over top-1 confidence,
+  each mapped to its measured top-1 accuracy, with small bins merged into a neighbour; the other options are
+  rescaled by one common factor and the new top-1 is floored above the rescaled runner-up, so the argmax of
+  every row is kept and accuracy equals the input's exactly. Outputs are clipped at 1e-12, so none is
+  exactly 0 or 1. Tests on constructed sets with known per-bin accuracy in `tests/test_binning.py`.
 
 ## 0.3.0 (2026-10-06)
 
