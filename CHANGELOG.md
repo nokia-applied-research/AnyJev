@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `anyjev.calibrate.binning.HistogramBinning`: top-label histogram binning (Zadrozny and Elkan, 2001) as an L1 alternative to temperature scaling. Equal-mass bins over top-1 confidence, each mapped to its measured top-1 accuracy, with small bins merged into a neighbour; the other options are rescaled by one common factor and the new top-1 is floored above the rescaled runner-up, so the argmax of every row is kept and accuracy equals the input's exactly. Unit tests on constructed sets with known per-bin accuracy (`tests/test_binning.py`). Not wired into `Decider.calibrate` yet.
+
 ## 0.2.0 (2026-09-28)
 
 - **New, opt-in: L0 can read as many option rotations as the decision needs instead of K, with the
