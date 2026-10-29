@@ -33,7 +33,7 @@ dependencies = ["numpy>=1.24"]
 hf = ["torch>=2.3", "transformers>=4.53"]
 vllm = ["vllm>=0.17.1"]
 # a client of a running `vllm serve` (engine="server", python -m anyjev.serve) needs only the tokenizer
-client = ["transformers>=4.53"]
+client = ["transformers>=4.53", "jinja2"]   # jinja2: the tokenizer's chat template (apply_chat_template)
 # scripts/eval_tacit.py: the bev-decision split and the tokenizer
 eval = ["datasets>=2.20", "transformers>=4.53"]
 # anyjev.backends.llamacpp: GGUF models through llama-cpp-python

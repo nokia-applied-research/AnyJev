@@ -117,7 +117,8 @@ causal LM, with no training and no labels.
 
 ```python
 from anyjev import Decider, Question
-from anyjev.backends.hf import HFBackend          # or VLLMBackend / SGLangBackend(url, model), LlamaCppBackend(gguf)
+from anyjev.backends.hf import HFBackend          # or VLLMBackend / SGLangBackend(url, model), LlamaCppBackend(gguf),
+                                                  # StrataBackend(url, model, tokenizer_name=...)
 
 d = Decider(HFBackend("Qwen/Qwen3-8B"))           # level="L0" by default
 route = Question.choice("Which team should handle this?",
@@ -266,6 +267,7 @@ Every Tacit decision carries its `route`.
 - [ ] 🚧 Label-free early exit: read a decision from part of the model's depth, choosing the depth by agreement with the full model
 - [ ] **Agent-loop evaluation**: the same decisions inside a real agent
 - [x] SGLang backend (`anyjev.backends.sglang`), contributed by @shentonyan
+- [x] Strata backend (`anyjev.backends.strata`) for Strata's `/v1/completions`, repeatable reads with Strata's canonical reads
 - [x] llama.cpp backend for GGUF models (`anyjev.backends.llamacpp`), contributed by @Tusm11
 - [ ] More log-prob backends (MLX, Ollama), span readout beyond 26 options
 

@@ -18,6 +18,17 @@
   5th of 149 entries on 2026-10-12, with the private parts and the latency measured by the board's maintainers.
   The numbers are in `bench/results_decision_index/2026-10-12/` and checked by `tests/test_readme_numbers.py`;
   the engine is github.com/MorrisZJ/anyjev-l0-gemma.
+- **New: `StrataBackend`** (`anyjev/backends/strata.py`), for Strata's `/v1/completions`. Each prompt goes
+  as token ids with `max_tokens=1`, `logprobs=0` and `allowed_token_ids` set to the labels, and the named ids'
+  full-vocabulary log-probabilities are read back by id (`return_tokens_as_token_ids`). It needs a Strata
+  server of 0.2.7 or later with logprobs on `/v1/completions` (Niko1221/Strata#3332 and #4056); `--parallel` works,
+  since every read is `max_tokens=1`. Its reads are repeatable on a Strata with canonical reads
+  (Niko1221/Strata#4604): every one-token logprobs read is computed the same way whatever the expert cache
+  holds, with no server setting and no cost to the server's other requests (a read costs what a first read of
+  its prompt does). Without it, `--adapt-swaps 0 --pcie-frac 0` and `STRATA_PREFILL_CPU_SHARE=0.5` do the
+  same for about 38% of the server's decode speed (Niko1221/Strata#4059). HFBackend cannot load the 125B models Strata serves, so `scripts/strata_parity.py`
+  checks against the same server's unrestricted top-20 instead. The contract tests run against a stub in CI;
+  the engine smoke test is marked `@pytest.mark.engine`.
 - **New: `SGLangBackend`** (`anyjev/backends/sglang.py`), the native `/generate` scoring path. It sends the
   prompt's token ids alone with `max_new_tokens=0`, `return_logprob=True` and `token_ids_logprob`, and reads
   the requested ids from `meta_info["output_token_ids_logprobs"][0]` by id, so no token is sampled. Checked
