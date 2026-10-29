@@ -1,4 +1,5 @@
-"""An HTTP gateway for Tacit decisions in front of a running `vllm serve`.
+"""An HTTP gateway for decisions: Tacit in front of a running `vllm serve`, or the training-free
+`Decider` in front of a Strata server.
 
     vllm serve morriszjm/Tacit-9B --host 127.0.0.1 --port 8000
     python -m anyjev.serve --model morriszjm/Tacit-9B --upstream http://127.0.0.1:8000/v1 --adaptive
@@ -10,15 +11,57 @@ One `Tacit` serves every client, so the escalation cap (`max_cot_share` over the
 decisions) is shared. POST /v1/decide takes one decision ({"state", "question", "options", "kind"})
 or a batch ({"items": [...]}); GET /v1/stats and GET /health. Standard library only; it listens on
 127.0.0.1 unless told otherwise and has no authentication of its own.
+
+    python -m anyjev.serve --backend strata --upstream http://127.0.0.1:8080 \\
+        --served-model qwen3.8-flash-next-iq3_s --tokenizer Qwen/Qwen3.8-Flash-Next --api-key-env STRATA_API_KEY
+
+`--backend strata` answers the same requests with a `Decider` (L0) over `StrataBackend`. Its default
+prior is `content_free`: estimated once per question from probe states, so the same request gets the
+same answer however much traffic came before it (a `batch` prior moves with the traffic). With a
+Strata that reads canonically (Niko1221/Strata#4604) the answers then repeat exactly. One gateway
+reads from one Strata server: two machines round differently, and a decision's reads have to come
+from the same one.
 """
 from __future__ import annotations
 
 import argparse
 import http.server
 import json
-from typing import Optional, Sequence
+import os
+import threading
+from typing import Any, Dict, List, Optional, Sequence
 
-from anyjev.tacit import Tacit
+from anyjev.tacit import Tacit, make_question
+
+
+class DeciderService:
+    """A `Decider` behind the gateway's interface (`decide_batch`, `stats`).  One decision at a time:
+    a `Decider` keeps per-question state, and the server behind it answers one request at a time."""
+
+    def __init__(self, decider):
+        self.decider = decider
+        self.lock = threading.Lock()
+        self.count = 0
+
+    def decide_batch(self, items: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        out = []
+        for item in items:
+            q = make_question(item["question"], item.get("options"), item.get("kind", "choice"))
+            state = item["state"]
+            if not isinstance(state, str):
+                raise ValueError("state must be a string")
+            with self.lock:
+                d = next(iter(self.decider.decide(state, [q])))
+                self.count += 1
+            res = d.to_dict()
+            res["probs"] = d.distribution
+            out.append(res)
+        return out
+
+    @property
+    def stats(self) -> Dict[str, Any]:
+        return {"decisions": self.count, "level": self.decider.level, "prior": self.decider.prior,
+                "backend": getattr(self.decider.backend, "name", "?")}
 
 
 def make_server(tacit: Tacit, host: str = "127.0.0.1", port: int = 8100) -> http.server.ThreadingHTTPServer:
@@ -52,6 +95,8 @@ def make_server(tacit: Tacit, host: str = "127.0.0.1", port: int = 8100) -> http
                 return self._send(400, {"error": str(e)})
             except RuntimeError as e:                    # the vLLM server failed or is unreachable
                 return self._send(502, {"error": str(e)})
+            except Exception as e:                        # anything else: an answer, not a dropped connection
+                return self._send(500, {"error": "%s: %s" % (type(e).__name__, e)})
 
         def log_message(self, fmt, *args):
             pass
@@ -61,10 +106,19 @@ def make_server(tacit: Tacit, host: str = "127.0.0.1", port: int = 8100) -> http
 
 def main(argv: Optional[Sequence[str]] = None) -> None:
     ap = argparse.ArgumentParser(prog="python -m anyjev.serve",
-                                 description="Tacit decisions over HTTP, in front of a running `vllm serve`.")
-    ap.add_argument("--model", required=True, help="the repo vLLM serves, e.g. morriszjm/Tacit-9B")
-    ap.add_argument("--upstream", default="http://127.0.0.1:8000/v1", help="the vLLM server's URL (root or /v1)")
-    ap.add_argument("--served-model", default=None, help="vLLM's --served-model-name, if it was set")
+                                 description="Decisions over HTTP: Tacit in front of `vllm serve`, or the Decider "
+                                             "in front of Strata.")
+    ap.add_argument("--backend", choices=("tacit", "strata"), default="tacit")
+    ap.add_argument("--model", default=None, help="tacit: the repo vLLM serves, e.g. morriszjm/Tacit-9B")
+    ap.add_argument("--upstream", default=None,
+                    help="the server's URL (root or /v1); default http://127.0.0.1:8000/v1 (tacit), "
+                         "http://127.0.0.1:8080 (strata)")
+    ap.add_argument("--served-model", default=None, help="the served model name (vLLM's --served-model-name; "
+                                                          "strata: the name /v1/models lists)")
+    ap.add_argument("--tokenizer", default="Qwen/Qwen3.8-Flash-Next", help="strata: the model's Hugging Face tokenizer")
+    ap.add_argument("--api-key-env", default="STRATA_API_KEY", help="strata: the environment variable holding the key")
+    ap.add_argument("--prior", choices=("content_free", "batch", "none"), default="content_free",
+                    help="strata: the Decider's label prior (content_free repeats; batch moves with the traffic)")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8100)
     ap.add_argument("--adaptive", action="store_true", help="send low-confidence decisions to reasoning")
@@ -73,6 +127,22 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
     ap.add_argument("--cot-window", type=int, default=1000, help="0 counts every decision since start")
     ap.add_argument("--cot-max-tokens", type=int, default=8192)
     a = ap.parse_args(argv)
+    if a.backend == "strata":
+        from anyjev import Decider
+        from anyjev.backends.strata import StrataBackend
+
+        upstream = a.upstream or "http://127.0.0.1:8080"
+        backend = StrataBackend(upstream, a.served_model or "qwen3.8-flash-next-iq3_s", tokenizer_name=a.tokenizer,
+                                api_key=os.environ.get(a.api_key_env, "EMPTY"))
+        service = DeciderService(Decider(backend, prior=a.prior))
+        server = make_server(service, a.host, a.port)
+        print("Decider gateway: http://%s:%d/v1/decide -> %s (Strata, prior %s)" % (a.host, a.port, upstream, a.prior),
+              flush=True)
+        server.serve_forever()
+        return
+    if not a.model:
+        ap.error("--model is required with --backend tacit")
+    a.upstream = a.upstream or "http://127.0.0.1:8000/v1"
     tacit = Tacit.from_pretrained(a.model, engine="server", base_url=a.upstream, served_model=a.served_model,
                                   adaptive=a.adaptive, tau=a.tau,
                                   max_cot_share=None if a.max_cot_share < 0 else a.max_cot_share,
